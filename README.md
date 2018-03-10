@@ -19,7 +19,8 @@ Jonathan Corral - Thomas Garayt
 
 # Run
 - Connect your phone and enable debug mode and mount your phone
-- Make sure $ANDROID_HOME is defined
+- Make sure `$ANDROID_HOME` is defined
+- `react-native start`
 - `npm run android-linux`
 - `react-native run-android`
 
