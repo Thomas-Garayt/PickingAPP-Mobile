@@ -13,9 +13,13 @@ Jonathan Corral - Thomas Garayt
 
 
 # Install
-`npm install`
+- `npm install`
+- `npm -g install react-native-cli`
 
 
 # Run
-`react-native run-android`
+- Connect your phone and enable debug mode and mount your phone
+- Make sure $ANDROID_HOME is defined
+- `npm run android-linux`
+- `react-native run-android`
 
