@@ -9,7 +9,6 @@ export default class Router extends React.Component {
 
     state = {
         isLoggedIn: false,
-        jwt:''
     }
 
     render() {

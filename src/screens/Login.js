@@ -3,17 +3,19 @@ import {View, ScrollView, Text, TextInput, Button, ActivityIndicator} from 'reac
 import style from '../assets/css/Style'
 const GLOBAL = require('../../Globals');
 
+
 export default class Login extends React.Component {
 
     constructor(props) {
-        super(props)
+        super(props);
+
         this.state = {
             username: '',
             password: '',
             isLoggingIn: false,
-            message: '',
-            jwt:''
+            message: ''
         }
+
     }
 
     _userLogin = () => {
@@ -47,9 +49,21 @@ export default class Login extends React.Component {
                 if (response.value != undefined) {
                     proceed = true
                     this.setState({
-                        jwt: response.value,
+                        //jwt: response.value,
                         message:'Success:' + proceed
                     })
+
+
+                    // save in Storage
+                    storage.save({
+                        key: 'user',
+                        data: {
+                            jwt: response.value,
+                            id: response.user.id,
+                            name: response.user.username,
+                        }
+                    });
+
                 }
                 else {
                     this.setState({ message: response.message })
