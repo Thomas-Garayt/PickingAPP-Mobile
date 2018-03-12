@@ -15,6 +15,12 @@ export default StyleSheet.create({
         color:'#454545',
         marginBottom:10,
     },
+    bold: {
+      fontWeight:'bold',
+    },
+    big: {
+        fontSize:18,
+    },
     info:{
         fontStyle:'italic',
         color:'#9e9e9e',
