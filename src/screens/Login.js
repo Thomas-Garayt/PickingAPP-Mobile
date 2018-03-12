@@ -10,13 +10,14 @@ export default class Login extends React.Component {
         super(props);
 
         this.state = {
-            username: '',
-            password: '',
+            username: 'mimi',
+            password: '123456',
             isLoggingIn: false,
             message: ''
         }
 
     }
+
 
     _userLogin = () => {
         this.setState({isLoggingIn: true, message: ''});
@@ -49,7 +50,6 @@ export default class Login extends React.Component {
                 if (response.value != undefined) {
                     proceed = true
                     this.setState({
-                        //jwt: response.value,
                         message:'Success:' + proceed
                     })
 
@@ -63,7 +63,6 @@ export default class Login extends React.Component {
                             name: response.user.username,
                         }
                     });
-
                 }
                 else {
                     this.setState({ message: response.message })

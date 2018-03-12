@@ -11,14 +11,22 @@ export default class Router extends React.Component {
         isLoggedIn: false,
     }
 
+
+    setLogin = (status) => {
+        this.setState({isLoggedIn:status})
+    }
+
+
     render() {
         if (this.state.isLoggedIn) {
-            return (<Home/>)
+            return (<Home handleLogin={this.setLogin}
+                onLogouts={() => {this.setState({isLoggedIn:false})}}
+            />)
         }
         else {
             return (
                 <Login
-                    onLoginPress={() => this.setState({isLoggedIn: true})}/>
+                    onLoginPress={() => {this.setState({isLoggedIn:true})}}/>
             )
         }
     }
