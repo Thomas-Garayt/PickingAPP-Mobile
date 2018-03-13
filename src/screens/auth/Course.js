@@ -1,7 +1,11 @@
 import React from 'react'
-import {View,ScrollView, Text, Button, ActivityIndicator, } from 'react-native'
+import {View, ScrollView, Text, Button, ActivityIndicator, AppRegistry, Linking, Alert} from 'react-native'
 import style from '../../assets/css/Style'
 const GLOBAL = require('../../../Globals');
+
+// external NFC
+import NfcManager, {NdefParser} from 'react-native-nfc-manager'
+
 
 export default class Course extends React.Component {
 
@@ -13,14 +17,15 @@ export default class Course extends React.Component {
             user:false,
             preparation:false,
             course:false,
-            message:'',
+            message:'message here',
             step:0,
             finished:false,
+            tag:{}
         }
     }
 
 
-    componentDidMount() {
+    componentWillMount() {
         // load user from storage
         this.setState({isLoading:true})
         console.log("loading user...", storage)
@@ -37,6 +42,123 @@ export default class Course extends React.Component {
             console.warn(err.message);
             this.setState({isLoading:true})
         })
+
+        // Check for NFC
+        this.setState({message:'check for NFC...'})
+        NfcManager.isSupported()
+            .then(supported => {
+                if (supported) {
+                    this.setState({ message:'NFC is supported' });
+                    this._startNfc();
+                } else {
+                    this.setState({ message:'NFC is not supported' });
+                }
+            })
+    }
+
+    componentWillUnmount() {
+        if (this._stateChangedSubscription) {
+            this._stateChangedSubscription.remove();
+        }
+    }
+
+
+    _startNfc() {
+        NfcManager.start({
+            onSessionClosedIOS: () => {
+                console.log('ios session closed');
+            }
+        })
+            .then(result => {
+                console.log('start OK', result);
+                this.setState({message:'nfc is ready'});
+            })
+            .catch(error => {
+                console.warn('start fail', error);
+                this.setState({message:'nfc start error'});
+            })
+
+        if (Platform.OS === 'android') {
+            NfcManager.getLaunchTagEvent()
+                .then(tag => {
+                    console.log('launch tag', tag);
+                    if (tag) {
+                        //this.setState({ tag });
+                        Alert.alert(JSON.stringify(e))
+                        this.setState({message:'tag event'});
+                    }
+                })
+                .catch(err => {
+                    console.log(err);
+                    Alert.alert(JSON.stringify(err))
+                })
+            NfcManager.isEnabled()
+                .then(enabled => {
+                    //this.setState({ enabled });
+                    this.setState({message:'nfc is enabled'});
+                })
+                .catch(err => {
+                    console.log(err);
+                })
+            NfcManager.onStateChanged(
+                event => {
+                    if (event.state === 'on') {
+                        //this.setState({enabled: true});
+                    } else if (event.state === 'off') {
+                        this.setState({enabled: false});
+                    } else if (event.state === 'turning_on') {
+                        // do whatever you want
+                    } else if (event.state === 'turning_off') {
+                        // do whatever you want
+                    }
+                }
+            )
+                .then(sub => {
+                    this._stateChangedSubscription = sub;
+                    // remember to call this._stateChangedSubscription.remove()
+                    // when you don't want to listen to this anymore
+                })
+                .catch(err => {
+                    console.warn(err);
+                    Alert.alert(JSON.stringify(err))
+                })
+        }
+    }
+
+    _onTagDiscovered = tag => {
+        console.log('Tag Discovered', tag);
+        Alert.alert(JSON.stringify(tag))
+        this.setState({ tag });
+        let url = this._parseUri(tag);
+        if (url) {
+            this.setState({ message: url });
+            Linking.openURL(url)
+                .catch(err => {
+                    console.warn(err);
+                })
+        }
+    }
+
+    _stopDetection = () => {
+        NfcManager.unregisterTagEvent()
+            .then(result => {
+                console.log('unregisterTagEvent OK', result)
+            })
+            .catch(error => {
+                console.warn('unregisterTagEvent fail', error)
+            })
+    }
+
+    _parseUri = (tag) => {
+        if (tag.ndefMessage) {
+            let result = NdefParser.parseUri(tag.ndefMessage[0]),
+                uri = result && result.uri;
+            if (uri) {
+                console.log('parseUri: ' + uri);
+                return uri;
+            }
+        }
+        return null;
     }
 
     _startCourse = () => {
@@ -123,6 +245,20 @@ export default class Course extends React.Component {
 
     _scanProduct = () => {
         console.log("scanning product...");
+
+        NfcManager.registerTagEvent(this._onTagDiscovered)
+            .then(result => {
+                console.log('registerTagEvent OK', result)
+                this.setState({message:'success read tag'})
+                Alert.alert(JSON.stringify(result))
+                //this._stopDetection()
+            })
+            .catch(error => {
+                console.warn('registerTagEvent fail', error)
+                this.setState({message:'failed read tag'})
+                //this._stopDetection()
+            })
+
     }
 
     _reportProduct = () => {
@@ -221,7 +357,7 @@ export default class Course extends React.Component {
         if(this.state.isLoading) {
             return(
                 <View style={style.container}>
-                    <Text style={[style.h1, style.centerAlign]}>Course</Text>
+                    <Text style={[style.h1, style.centerAlign]}>Courses</Text>
                     <Text style={[style.text, style.centerAlign]}>Veuillez patienter</Text>
                     <ActivityIndicator size={"large"} color={"#0099ff"} />
                 </View>
@@ -250,7 +386,7 @@ export default class Course extends React.Component {
                 const{step} = this.state;
                 return(
                     <ScrollView style={style.container}>
-                        <Text style={[style.h1, style.centerAlign]}>Course</Text>
+                        <Text style={[style.h1, style.centerAlign]}>Courses</Text>
 
                         <View style={style.container}>
                             <Text style={[style.text, style.big]}>
@@ -308,9 +444,11 @@ export default class Course extends React.Component {
                                 title={"Valider cette étape"}
                                 onPress={() => this._validateStep()} />
 
+                            <Text style={[style.h2]}>{"\n"}Message</Text>
                             {!!this.state.message && (
                                 <Text style={[style.text, style.centerAlign, style.error]}>
                                     {this.state.message}
+                                    {JSON.stringify(this.state.tag)}
                                 </Text>
                             )}
                             <Text>{"\n"}{"\n"}</Text>
@@ -320,7 +458,7 @@ export default class Course extends React.Component {
             } else {
                 return (
                     <View style={style.container}>
-                        <Text style={[style.h1, style.centerAlign]}>Course</Text>
+                        <Text style={[style.h1, style.centerAlign]}>Courses</Text>
                         <Text style={[style.text]}>Bravo {this.state.user.name},{"\n"}</Text>
                         <Text style={[style.text]}>Vous avez terminé la course !{"\n"}{"\n"}</Text>
                         <Text style={[style.text, style.info]}>
@@ -328,6 +466,11 @@ export default class Course extends React.Component {
                             avec votre caddie.{"\n"}
                             Merci.
                         </Text>
+                        {!!this.state.message && (
+                            <Text style={[style.text, style.centerAlign, style.error]}>
+                                {this.state.message}
+                            </Text>
+                        )}
                     </View>
                 )
             }
