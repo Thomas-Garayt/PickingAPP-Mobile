@@ -221,7 +221,13 @@ export default class Course extends React.Component {
                 if (response.id != undefined) {
                     this.setState({
                         preparation:response
-                    })
+                    });
+
+                    storage.save({
+                        key: 'preparation',
+                        data: response
+                    });
+
                     this.getCourse();
                 }
                 else {
@@ -316,8 +322,8 @@ export default class Course extends React.Component {
             'Stock insuffisant',
             "Confirmez-vous que le stock n'est pas suffisant pour valider cette étape ?",
             [
-                {text: 'Cancel', onPress: () => console.log('Cancel Pressed'), style: 'cancel'},
-                {text: 'OK', onPress: () => {
+                {text: 'Annuler', onPress: () => console.log('Cancel Pressed'), style: 'cancel'},
+                {text: 'Confirmer', onPress: () => {
 
                         let params = {type:"stock"};
 
