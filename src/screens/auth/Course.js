@@ -1,5 +1,5 @@
 import React from 'react'
-import {View, ScrollView, Text, Button, ActivityIndicator, AppRegistry, Linking, Alert} from 'react-native'
+import {View, ScrollView, Text, Button, ActivityIndicator, AppRegistry, Linking, Alert, Modal} from 'react-native'
 import style from '../../assets/css/Style'
 const GLOBAL = require('../../../Globals');
 
@@ -311,6 +311,52 @@ export default class Course extends React.Component {
 
     _reportProduct = () => {
         console.log("reporting product stock...");
+
+        Alert.alert(
+            'Stock insuffisant',
+            "Confirmez-vous que le stock n'est pas suffisant pour valider cette étape ?",
+            [
+                {text: 'Cancel', onPress: () => console.log('Cancel Pressed'), style: 'cancel'},
+                {text: 'OK', onPress: () => {
+
+                        let params = {type:"stock"};
+
+                        let productPosition = this.state.course[this.state.step].productPosition.id;
+
+                        fetch(GLOBAL.BASE_URL + "productposition/"+productPosition+"/notifications", {
+                            method: GLOBAL.METHOD.POST,
+                            headers: {
+                                Accept: GLOBAL.CONTENT_TYPE.JSON,
+                                'Content-Type': GLOBAL.CONTENT_TYPE.JSON,
+                                'X-Auth-Token':this.state.user.jwt
+                            },
+                            body: JSON.stringify(params)
+                        })
+                            .then((response) => response.json())
+                            .then((response) => {
+
+                                if (response.message != undefined) {
+                                    this.setState({ message: response.message })
+                                }
+                                else {
+                                    this.setState({stepValid:true});
+                                }
+                            })
+                            .then(() => {
+                                this.setState({isLoading:false});
+                            })
+                            .catch(err => {
+                                this.setState({ message: err.message })
+                                this.setState({ isLoading: false })
+                            });
+
+
+
+                }},
+            ],
+            { cancelable: true }
+        )
+
     }
 
     _validateStep = () => {
