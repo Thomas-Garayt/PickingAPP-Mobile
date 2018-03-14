@@ -3,11 +3,11 @@ import {StyleSheet} from 'react-native'
 export default StyleSheet.create({
     h1: {
         fontSize: 26,
-        marginBottom:40
+        marginBottom:10
     },
     h2: {
         fontSize: 22,
-        marginBottom:30
+        marginBottom:10
     },
     text: {
         fontFamily:'Roboto',
@@ -27,7 +27,7 @@ export default StyleSheet.create({
     },
     error: {
         fontSize: 14,
-        color: 'red',
+        color: '#EE0055',
         padding: 5
     },
     centerAlign: {
@@ -53,5 +53,8 @@ export default StyleSheet.create({
     },
     textBlue:{
         color:"#0099FF"
+    },
+    textGreen:{
+        color:"#00CC55"
     }
 })

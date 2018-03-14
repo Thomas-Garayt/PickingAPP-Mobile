@@ -17,15 +17,19 @@ export default class Course extends React.Component {
             user:false,
             preparation:false,
             course:false,
-            message:'message here',
+            message:'',
             step:0,
+            retrieved:0,
+            overflow:false,
+            stepValid:false,
             finished:false,
+            nfc:false,
             tag:{}
         }
     }
 
 
-    componentWillMount() {
+    componentDidMount() {
         // load user from storage
         this.setState({isLoading:true})
         console.log("loading user...", storage)
@@ -44,14 +48,14 @@ export default class Course extends React.Component {
         })
 
         // Check for NFC
-        this.setState({message:'check for NFC...'})
+        //this.setState({message:'check for NFC...'})
         NfcManager.isSupported()
             .then(supported => {
                 if (supported) {
-                    this.setState({ message:'NFC is supported' });
+                    //this.setState({ message:'NFC is supported' });
                     this._startNfc();
                 } else {
-                    this.setState({ message:'NFC is not supported' });
+                    this.setState({ message:'NFC is not supported !' });
                 }
             })
     }
@@ -59,6 +63,10 @@ export default class Course extends React.Component {
     componentWillUnmount() {
         if (this._stateChangedSubscription) {
             this._stateChangedSubscription.remove();
+        }
+
+        if(this.state.nfc){
+            this._stopDetection()
         }
     }
 
@@ -71,7 +79,7 @@ export default class Course extends React.Component {
         })
             .then(result => {
                 console.log('start OK', result);
-                this.setState({message:'nfc is ready'});
+                this.setState({nfc:true});
             })
             .catch(error => {
                 console.warn('start fail', error);
@@ -84,8 +92,7 @@ export default class Course extends React.Component {
                     console.log('launch tag', tag);
                     if (tag) {
                         //this.setState({ tag });
-                        Alert.alert(JSON.stringify(e))
-                        this.setState({message:'tag event'});
+                        //this.setState({message:'tag event'});
                     }
                 })
                 .catch(err => {
@@ -95,10 +102,11 @@ export default class Course extends React.Component {
             NfcManager.isEnabled()
                 .then(enabled => {
                     //this.setState({ enabled });
-                    this.setState({message:'nfc is enabled'});
+                    //this.setState({message:'nfc is enabled'});
                 })
                 .catch(err => {
                     console.log(err);
+                    Alert.alert(JSON.stringify(err))
                 })
             NfcManager.onStateChanged(
                 event => {
@@ -127,15 +135,25 @@ export default class Course extends React.Component {
 
     _onTagDiscovered = tag => {
         console.log('Tag Discovered', tag);
-        Alert.alert(JSON.stringify(tag))
-        this.setState({ tag });
+        this.setState({
+            message:"success",
+            tag: tag.ndefMessage[0]
+        });
         let url = this._parseUri(tag);
         if (url) {
-            this.setState({ message: url });
-            Linking.openURL(url)
+            //this.setState({ message: url });
+            /*Linking.openURL(url)
                 .catch(err => {
                     console.warn(err);
-                })
+                    Alert.alert(JSON.stringify(err))
+                })*/
+            let valid = this._scanProduct(url);
+
+            if(valid) {
+                this.setState({retrieved: this.state.retrieved + 1});
+                this._checkQuantity();
+            }
+
         }
     }
 
@@ -155,6 +173,7 @@ export default class Course extends React.Component {
                 uri = result && result.uri;
             if (uri) {
                 console.log('parseUri: ' + uri);
+                //Alert.alert(JSON.stringify(uri))
                 return uri;
             }
         }
@@ -163,6 +182,21 @@ export default class Course extends React.Component {
 
     _startCourse = () => {
         this.getPreparation();
+
+        if(this.state.nfc){
+            NfcManager.registerTagEvent(this._onTagDiscovered)
+                .then(result => {
+                    console.log('registerTagEvent OK', result)
+
+                })
+                .catch(error => {
+                    console.warn('registerTagEvent fail', error)
+                    this.setState({message:'failed read tag'})
+                })
+        } else {
+            this.setState({message:'Le lecteur NFC ne fonctionne pas !'})
+        }
+
     }
 
     getPreparation = () => {
@@ -243,22 +277,36 @@ export default class Course extends React.Component {
     }
 
 
-    _scanProduct = () => {
+    _scanProduct = (url) => {
         console.log("scanning product...");
 
-        NfcManager.registerTagEvent(this._onTagDiscovered)
-            .then(result => {
-                console.log('registerTagEvent OK', result)
-                this.setState({message:'success read tag'})
-                Alert.alert(JSON.stringify(result))
-                //this._stopDetection()
-            })
-            .catch(error => {
-                console.warn('registerTagEvent fail', error)
-                this.setState({message:'failed read tag'})
-                //this._stopDetection()
-            })
+        let scan = url.split("ean13://")[1];
 
+        if(!scan) {
+            this.setState({ message: "Tag NFC invalide !" })
+            return false;
+        }
+
+
+        let product = this.state.course[this.state.step].productPosition.product.ean13;
+
+        if(!product) {
+            this.setState({
+                message: "Impossible de trouver le code " +
+                "EAN13 dans votre course à l'étape : " + this.state.step
+            });
+            return false;
+        }
+
+        if(scan != product) {
+            this.setState({
+                message: "L'article scanné ("+scan+") ne correspond pas au produit actuel ("+product+")"
+            });
+            //return false;
+            return true;
+        }
+
+        return true;
     }
 
     _reportProduct = () => {
@@ -293,7 +341,13 @@ export default class Course extends React.Component {
                     }
                     else {
                         //on success
-                        this.setState({step: this.state.step + 1});
+                        this.setState({
+                            retrieved:0,
+                            overflow:false,
+                            stepValid:false,
+                            tag:{},
+                            step: this.state.step + 1
+                        });
                     }
                 })
                 .then(() => {
@@ -353,11 +407,43 @@ export default class Course extends React.Component {
     }
 
 
+    _cancelOverflow = () => {
+        this.setState({
+            retrieved: this.state.retrieved - 1
+        });
+        setTimeout(() => {
+            this._checkQuantity()
+        }, 150)
+    }
+
+
+    _checkQuantity = () => {
+        let check = (this.state.retrieved / this.state.course[this.state.step].quantity);
+        if(check == 1) {
+            this.setState({
+                stepValid:true,
+                message:''
+            });
+        } else if(check > 1) {
+            this.setState({
+                stepValid:false,
+                overflow:true,
+                message:"Vous avez pris trop d'articles ! " +
+                "Veuillez reposer le surplus."
+            });
+        } else {
+            this.setState({
+                stepValid:false,
+                message:''
+            });
+        }
+    }
+
     render(){
         if(this.state.isLoading) {
             return(
                 <View style={style.container}>
-                    <Text style={[style.h1, style.centerAlign]}>Courses</Text>
+                    <Text style={[style.h1, style.centerAlign]}>Course</Text>
                     <Text style={[style.text, style.centerAlign]}>Veuillez patienter</Text>
                     <ActivityIndicator size={"large"} color={"#0099ff"} />
                 </View>
@@ -386,36 +472,24 @@ export default class Course extends React.Component {
                 const{step} = this.state;
                 return(
                     <ScrollView style={style.container}>
-                        <Text style={[style.h1, style.centerAlign]}>Courses</Text>
-
-                        <View style={style.container}>
-                            <Text style={[style.text, style.big]}>
-                                <Text style={[style.bold]}>Etape : </Text>
-                                <Text>{step + 1} / {this.state.course.length}</Text>
-                            </Text>
-
-                            {this.state.course[step].quantity && <Text style={[style.text, style.big]}>
-                                <Text style={[style.bold]}>Quantité : </Text>
-                                <Text>{this.state.course[step].quantity}</Text>
-                            </Text>}
-                        </View>
+                        <Text style={[style.h1, style.centerAlign]}>Course</Text>
 
                         {this.state.course[step].productPosition.position && <View style={style.container}>
-                            <Text style={[style.h2]}>{"\n"}Localisation</Text>
+                            <Text style={[style.h2]}>Localisation</Text>
                             <Text style={[style.text]}>
-                                <Text style={[style.bold]}>Allée : </Text>
-                                <Text>{this.state.course[step].productPosition.position.lane}{this.state.course[step].productPosition.position.landmark}</Text>
+                                <Text style={[]}>Allée : </Text>
+                                <Text style={[style.bold, style.big]}>{this.state.course[step].productPosition.position.lane}{this.state.course[step].productPosition.position.landmark}</Text>
 
-                                <Text style={[style.bold]}> - Section : </Text>
-                                <Text>{this.state.course[step].productPosition.position.section}</Text>
+                                <Text style={[]}> - Section : </Text>
+                                <Text style={[style.bold, style.big]}>{this.state.course[step].productPosition.position.section}</Text>
 
-                                <Text style={[style.bold]}> - Etagère : </Text>
-                                <Text>{this.state.course[step].productPosition.position.shelf}</Text>
+                                <Text style={[]}> - Etagère : </Text>
+                                <Text style={[style.bold, style.big]}>{this.state.course[step].productPosition.position.shelf}</Text>
                             </Text>
                         </View>}
 
                         {this.state.course[step].productPosition.product && <View style={style.container}>
-                            <Text style={[style.h2]}>{"\n"}Informations</Text>
+                            <Text style={[style.h2]}>Informations</Text>
                             <Text style={[style.text]}>
                                 <Text style={[style.bold]}>Poids : </Text>
                                 <Text>{this.state.course[step].productPosition.product.weight} KG</Text>
@@ -427,31 +501,55 @@ export default class Course extends React.Component {
                         </View>}
 
                         <View style={style.container}>
-                            <Text style={[style.h2]}>{"\n"}Actions</Text>
-                            <Button
-                                style={[style.button]}
-                                title={"Scanner"}
-                                onPress={() => this._scanProduct()} />
-                            <Text>{"\n"}</Text>
-                            <Button
-                                style={[style.button]}
-                                title={"Stock insuffisant"}
-                                onPress={() => this._reportProduct()} />
+                            <Text style={[style.text, style.big]}>
+                                <Text style={[style.bold]}>Etape : </Text>
+                                <Text>{step + 1} / {this.state.course.length}</Text>
+                            </Text>
 
-                            <Text>{"\n"}{"\n"}</Text>
-                            <Button
-                                style={[style.button]}
-                                title={"Valider cette étape"}
-                                onPress={() => this._validateStep()} />
+                            {this.state.course[step].quantity && <Text style={[style.text, style.big]}>
+                                <Text style={[style.bold]}>Quantité récupérée : </Text>
+                                <Text> {this.state.retrieved} / {this.state.course[step].quantity}</Text>
+                            </Text>}
+                        </View>
 
-                            <Text style={[style.h2]}>{"\n"}Message</Text>
+                        <View style={style.container}>
                             {!!this.state.message && (
                                 <Text style={[style.text, style.centerAlign, style.error]}>
                                     {this.state.message}
-                                    {JSON.stringify(this.state.tag)}
                                 </Text>
                             )}
-                            <Text>{"\n"}{"\n"}</Text>
+
+                            {!this.state.message && !this.state.stepValid && (<Text style={[style.text, style.info]}>
+                                Approchez votre smartphone d'un tag NFC
+                                pour scanner un article.{"\n"}
+                                Répétez l'opération jusqu'à la récupération de la quantité demandée,
+                                puis validez.
+                            </Text>)}
+
+                            {!this.state.message && !!this.state.stepValid && (<Text style={[style.text, style.textGreen]}>
+                                Vous pouvez désormais passer à l'étape suivante.
+                            </Text>)}
+                        </View>
+
+                        <View style={style.container}>
+                            <Text style={[style.h2]}>{"\n"}Actions</Text>
+                            {!this.state.stepValid && !!this.state.overflow && (<Button
+                                style={[style.button]}
+                                title={"Reposer un article"}
+                                onPress={() => this._cancelOverflow()} />)}
+                            <Button
+                                style={[style.button]}
+                                color={"#00CC55"}
+                                disabled={!this.state.stepValid}
+                                title={"Valider cette étape"}
+                                onPress={() => this._validateStep()} />
+                            <Text>{"\n"}</Text>
+                            <Button
+                                style={[style.button]}
+                                color={"#EE0055"}
+                                disabled={!!this.state.stepValid || !!this.state.overflow}
+                                title={"Stock insuffisant"}
+                                onPress={() => this._reportProduct()} />
                         </View>
                     </ScrollView>
                 )
