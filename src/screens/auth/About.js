@@ -1,5 +1,5 @@
 import React from 'react'
-import {View, Text, Button, StyleSheet, ActivityIndicator, Alert} from 'react-native'
+import {View, Text, Button, StyleSheet, ActivityIndicator, Alert, ProgressBarAndroid, ProgressViewIOS, Platform} from 'react-native'
 import style from '../../assets/css/Style'
 
 const GLOBAL = require('../../../Globals');
@@ -31,6 +31,11 @@ export default class About extends React.Component {
             payload => {
                 // Refresh data on screen focus
                 this._refreshData();
+
+                if(this.state.user.caracteristic.id) {
+                    this._refreshUserCaracteristics()
+                }
+
             }
         );
     }
@@ -211,6 +216,14 @@ export default class About extends React.Component {
                                     <Text>Endurance : {this.state.caracteristic.currentStamina} / 100{"\n"}</Text>
                                 </Text>
                             )}
+
+                            {
+                                ( Platform.OS === 'android' )
+                                    ?
+                                    ( <ProgressBarAndroid styleAttr = "Horizontal" progress = { parseFloat(this.state.caracteristic.currentStamina / 100) } indeterminate = { false } /> )
+                                    :
+                                    ( <ProgressViewIOS progress = { this.state.Progress_Value } /> )
+                            }
                         </View>
                     )}
                     <Text>{"\n"}</Text>
