@@ -140,7 +140,7 @@ export default class Course extends React.Component {
         console.log('Tag Discovered', tag);
         this.setState({
             message:"success",
-            tag: tag.ndefMessage[0]
+            tag: tag
         });
         let url = this._parseUri(tag);
         if (url) {
@@ -159,6 +159,16 @@ export default class Course extends React.Component {
                 Vibration.vibrate([0,250,75, 250])
             }
 
+        } else if(tag.id && tag.id == "04DB81BAC14C80") {
+            // cheat tag for demo
+            this.setState({
+                message:'Cheat tag detected',
+                retrieved: this.state.retrieved + 1
+            });
+            this._checkQuantity();
+        } else {
+            this.setState({ message: "Tag inconnu" });
+            Vibration.vibrate([0,250,75, 250])
         }
     }
 
@@ -476,8 +486,13 @@ export default class Course extends React.Component {
 
     _checkQuantity = () => {
         let check = (this.state.retrieved / this.state.course[this.state.step].quantity);
-        if(check == 1) {
+
+        if(check <= 1) {
+            // cheat to trigger success vibration pattern
             Vibration.vibrate(250);
+        }
+
+        if(check == 1) {
             this.setState({
                 stepValid:true,
                 message:''
@@ -491,7 +506,6 @@ export default class Course extends React.Component {
                 "Veuillez reposer le surplus."
             });
         } else {
-            Vibration.vibrate([0,250,75, 250])
             this.setState({
                 stepValid:false,
                 message:''
