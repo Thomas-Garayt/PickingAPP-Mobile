@@ -1,5 +1,5 @@
 import React from 'react'
-import {View, ScrollView, Text, Button, ActivityIndicator, AppRegistry, Linking, Alert, Modal} from 'react-native'
+import {View, ScrollView, Text, Button, ActivityIndicator, AppRegistry, Linking, Alert, Vibration} from 'react-native'
 import style from '../../assets/css/Style'
 const GLOBAL = require('../../../Globals');
 
@@ -57,6 +57,9 @@ export default class Course extends React.Component {
                 } else {
                     this.setState({ message:'NFC is not supported !' });
                 }
+            }).catch(err => {
+                //console.warn(err.message);
+                this.setState({isLoading:false})
             })
     }
 
@@ -152,6 +155,8 @@ export default class Course extends React.Component {
             if(valid) {
                 this.setState({retrieved: this.state.retrieved + 1});
                 this._checkQuantity();
+            } else {
+                Vibration.vibrate([0,250,75, 250])
             }
 
         }
@@ -308,8 +313,8 @@ export default class Course extends React.Component {
             this.setState({
                 message: "L'article scanné ("+scan+") ne correspond pas au produit actuel ("+product+")"
             });
-            //return false;
-            return true;
+            return false;
+            //return true;
         }
 
         return true;
@@ -472,11 +477,13 @@ export default class Course extends React.Component {
     _checkQuantity = () => {
         let check = (this.state.retrieved / this.state.course[this.state.step].quantity);
         if(check == 1) {
+            Vibration.vibrate(250);
             this.setState({
                 stepValid:true,
                 message:''
             });
         } else if(check > 1) {
+            Vibration.vibrate([0,250,75, 250])
             this.setState({
                 stepValid:false,
                 overflow:true,
@@ -484,6 +491,7 @@ export default class Course extends React.Component {
                 "Veuillez reposer le surplus."
             });
         } else {
+            Vibration.vibrate([0,250,75, 250])
             this.setState({
                 stepValid:false,
                 message:''
