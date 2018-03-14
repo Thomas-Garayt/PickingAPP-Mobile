@@ -61,6 +61,9 @@ export default class Login extends React.Component {
                             jwt: response.value,
                             id: response.user.id,
                             name: response.user.username,
+                            firstname: response.user.firstname,
+                            lastname: response.user.lastname,
+                            caracteristic: response.user.caracteristic,
                         }
                     });
                 }
